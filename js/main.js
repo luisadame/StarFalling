@@ -25,6 +25,7 @@ function Star(x, y, radius, color) {
     y: 3
   };
   this.glow = 10;
+  this.friction = 0.8;
 }
 
 Star.prototype.draw = function () {
@@ -42,13 +43,20 @@ Star.prototype.draw = function () {
 Star.prototype.update = function () {
   this.draw();
 
-  if (this.y + this.radius + this.velocity.y >= innerHeight) {
-    this.velocity.y = -this.velocity.y * 0.8;
+  // Bounce on the floor
+  if (this.y + this.radius + this.velocity.y >= innerHeight - floorHeight) {
+    this.velocity.y = -this.velocity.y * this.friction;
     this.shatter();
-    this.radius -= 3;
+    this.radius -= 4;
     this.glow -= 2;
   } else {
     this.velocity.y += 1;
+  }
+
+  // Bounce on the sides
+  if (this.x + this.radius + this.velocity.x >= canvas.width ||
+    this.x - this.radius <= 0) {
+    this.velocity.x = -this.velocity.x * this.friction;
   }
 
   this.y += this.velocity.y;
@@ -57,7 +65,7 @@ Star.prototype.update = function () {
 
 Star.prototype.shatter = function () {
   for (let i = 0; i < 8; i++) {
-    miniStars.push(new MiniStar(this.x, this.y, 5, "red"));
+    miniStars.push(new MiniStar(this.x, this.y, 5, 'white'));
   }
 };
 
@@ -88,7 +96,7 @@ MiniStar.prototype.draw = function () {
 MiniStar.prototype.update = function () {
   this.draw();
 
-  if (this.y + this.radius + this.velocity.y >= innerHeight) {
+  if (this.y + this.radius + this.velocity.y >= innerHeight - floorHeight) {
     this.velocity.y = -this.velocity.y * this.friction;
   } else {
     this.velocity.y += this.gravity;
@@ -96,14 +104,16 @@ MiniStar.prototype.update = function () {
 
   this.x += this.velocity.x;
   this.y += this.velocity.y;
-  this.opacity -= 1 / this.ttl--;
-  this.glow -= 10 / this.ttl;
+  this.opacity -= this.opacity / this.ttl;
+  this.glow -= this.glow / this.ttl;
+  this.radius -= this.radius / this.ttl;
+  this.ttl--;
 };
 
 function addStar() {
-  let x = utils.randomIntFromRange(20, innerWidth - 20);
+  let x = utils.randomIntFromRange(20, canvas.width - 20);
   let radius = utils.randomIntFromRange(10, 20);
-  stars.push(new Star(x, 0, radius, 'white'));
+  stars.push(new Star(x, -100, radius, 'white'));
 }
 
 function addMountainRange(amount, height, color) {
@@ -111,27 +121,44 @@ function addMountainRange(amount, height, color) {
   for (let i = 0; i < amount; i++) {
     ctx.beginPath();
     ctx.fillStyle = color;
-    ctx.moveTo(0, canvas.height);
-    ctx.lineTo(mountainWidth, canvas.height);
-    ctx.lineTo(mountainWidth / 2, canvas.height - height);
+    ctx.moveTo(i * mountainWidth, canvas.height);
+    ctx.lineTo(i * mountainWidth + mountainWidth + 325, canvas.height);
+    ctx.lineTo(i * mountainWidth + mountainWidth / 2, canvas.height - height);
+    ctx.lineTo(i * mountainWidth - 325, canvas.height);
     ctx.fill();
     ctx.closePath();
   }
 }
 
+function addFloor() {
+  ctx.beginPath();
+  ctx.fillStyle = "#262626";
+  ctx.fillRect(0, canvas.height, canvas.width, -floorHeight);
+  ctx.fill();
+  ctx.closePath();
+}
+
 // initialization
 let stars;
 let miniStars;
+let ticker = 0;
+let randomSpawnRate = 75;
+let starredBackground;
+let floorHeight = 60;
 let backgroundStyle = ctx.createLinearGradient(0, 0, 0, canvas.height);
-backgroundStyle.addColorStop(0, '#002C52');
-backgroundStyle.addColorStop(1, '#001152');
+backgroundStyle.addColorStop(0, '#171e26');
+backgroundStyle.addColorStop(1, '#3f586b');
 
 function init() {
   stars = [];
   miniStars = [];
-
-  addStar();
-  setInterval(addStar, 1000);
+  starredBackground = [];
+  for (let i = 0; i < 150; i++) {
+    let x = utils.randomIntFromRange(5, canvas.width - 5),
+      y = utils.randomIntFromRange(5, canvas.height - 400),
+      radius = utils.randomIntFromRange(1, 7);
+    starredBackground.push(new Star(x, y, radius, 'white'));
+  }
 }
 
 // the animation loop
@@ -142,8 +169,13 @@ function animate() {
   ctx.fillStyle = backgroundStyle;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+  // Add background stars
+  starredBackground.forEach(star => star.draw());
+
   // Add mountains
-  addMountainRange(1, 300, '#142533');
+  addMountainRange(1, canvas.height - 50, '#384551');
+  addMountainRange(2, canvas.height - 100, '#2B3843');
+  addMountainRange(3, canvas.height - 300, '#26333E');
 
   stars.forEach((star, index) => {
     star.update();
@@ -158,6 +190,16 @@ function animate() {
       miniStars.splice(index, 1);
     }
   });
+
+  // Add floor
+  addFloor();
+
+  ticker++;
+
+  if (ticker % randomSpawnRate == 0) {
+    addStar();
+    randomSpawnRate = utils.randomIntFromRange(75, 200);
+  }
 
   requestAnimationFrame(animate);
 }
