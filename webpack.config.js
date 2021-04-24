@@ -6,7 +6,7 @@ module.exports = {
     },
     output: {
         filename: '[name].js',
-        path: __dirname + '/dist'
+        path: __dirname + '/docs'
     },
     module: {
         rules: [{
@@ -28,7 +28,7 @@ module.exports = {
             host: 'localhost',
             port: 3000,
             server: {
-                baseDir: ['dist']
+                baseDir: ['docs']
             }
         })
     ]
